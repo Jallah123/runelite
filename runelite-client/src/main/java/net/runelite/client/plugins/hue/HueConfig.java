@@ -32,11 +32,16 @@ import java.awt.*;
 public interface HueConfig extends Config
 {
 
+	String generalSection = "generalSection";
+	String defaultSection = "defaultSection";
+	String alertSection = "alertSection";
+
 	@ConfigItem(
 			keyName = "enabled",
 			name = "Enables shit",
 			description = "Enables shit.",
-			position = 0
+			position = 0,
+			section = generalSection
 	)
 	default boolean enabled()
 	{
@@ -44,11 +49,22 @@ public interface HueConfig extends Config
 	}
 
 	@ConfigItem(
+			keyName = "room",
+			name = "Room",
+			description = "Your room to enable hue shit for",
+			position = 1,
+			section = generalSection
+	)
+	default String room()
+	{
+		return "";
+	}
+	@ConfigItem(
 			keyName = "brightness",
 			name = "Brightness",
 			description = "Configures the brightness",
 			position = 1,
-			section = roomSection
+			section = defaultSection
 	)
 	@Range(
 			max = 10
@@ -58,30 +74,43 @@ public interface HueConfig extends Config
 		return 6;
 	}
 
-	String roomSection = "roomSection";
-
 	@Alpha
 	@ConfigItem(
 			keyName = "defaultColor",
 			name = "Default color",
 			description = "Configures the default color",
-			position = 2,
-			section = roomSection
+			position = 1,
+			section = defaultSection
 	)
-	default Color highlightDestinationColor()
+	default Color defaultColor()
 	{
 		return Color.BLUE;
 	}
 
+
 	@ConfigItem(
-			keyName = "room",
-			name = "Room",
-			description = "Your room to enable hue shit for",
-			position = 3,
-			section = roomSection
+			keyName = "alertThreshold",
+			name = "Alert Item Value Threshold",
+			description = "Any item that is more valuable than this threshold will result in an alarm",
+			position = 1,
+			section = alertSection
 	)
-	default String room()
+	default int alertThreshold()
 	{
-		return "";
+		return 10000;
 	}
+
+	@Alpha
+	@ConfigItem(
+			keyName = "alarmColor",
+			name = "Alarm color",
+			description = "Configures the alarm color",
+			position = 1,
+			section = defaultSection
+	)
+	default Color alarmColor()
+	{
+		return Color.RED;
+	}
+
 }

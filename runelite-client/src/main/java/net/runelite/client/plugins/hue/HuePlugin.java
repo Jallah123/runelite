@@ -1,12 +1,14 @@
 package net.runelite.client.plugins.hue;
 
 import com.google.inject.Provides;
-import io.github.zeroone3010.yahueapi.*;
+import eu.openvalue.huev2.HueV2;
 
 import javax.inject.Inject;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
+import net.runelite.api.events.GameTick;
+import net.runelite.api.events.ItemSpawned;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -16,9 +18,8 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.awt.*;
+import java.util.List;
 
 @PluginDescriptor(
         name = "Hue",
@@ -45,10 +46,13 @@ public class HuePlugin extends Plugin {
     private static final String BRIDGE_IP = "172.16.1.180";
     private static final String APP_NAME = "MyFirstHueApp"; // Fill in the name of your application
     private static final String KEY = "nromEyldXQdCew5h7tHi6XTvu0C4IKO6yPOsGVfF";
-    private Hue hue;
-    private Optional<Room> room;
 
-    private State defaultState = null;
+    private HueV2 hue;
+    List<String> gradientLights;
+    List<String> normalLights;
+
+    long timeAlertEnabled = Integer.MAX_VALUE;
+    long timeAlertMs = 2000;
 
     @Provides
     HueConfig provideConfig(ConfigManager configManager) {
@@ -60,8 +64,11 @@ public class HuePlugin extends Plugin {
         clientThread.invokeLater(() ->
         {
             try {
-                hue = new Hue(BRIDGE_IP, KEY);
-                findRoom();
+
+
+                hue = new HueV2(BRIDGE_IP, KEY);
+                refreshLights();
+                setDefaultState();
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -69,9 +76,27 @@ public class HuePlugin extends Plugin {
         });
     }
 
-    private void findRoom() {
+    @Subscribe
+    public void onGameTick(GameTick tick) {
+        handleDisableAlert();
+    }
+
+    private void handleDisableAlert(){
+        if(timeAlertEnabled == Integer.MAX_VALUE) return;
+
+        long disableAlertAt = timeAlertMs + timeAlertEnabled;
+
+        if(disableAlertAt < System.currentTimeMillis()){
+            setDefaultState();
+            timeAlertEnabled = Integer.MAX_VALUE;
+        }
+    }
+
+    private void refreshLights() {
         String roomName = config.room();
-        room = hue.getRoomByName(roomName);
+        gradientLights = hue.getGradientLightsForRoom(roomName);
+        normalLights = hue.getNormalLightsForRoom(roomName);
+
     }
 
     @Override
@@ -81,47 +106,43 @@ public class HuePlugin extends Plugin {
 
     @Subscribe
     public void onConfigChanged(ConfigChanged configChanged) {
-        findRoom();
-        updateDefaultState();
-        if (room.isEmpty()) return;
+        refreshLights();
 
         if (config.enabled()) {
-            room.get().turnOn();
-            setState(defaultState);
-            applyBrightness();
+            setDefaultState();
+
         } else {
-            room.get().turnOff();
+            gradientLights.forEach(l -> hue.turnOff(l));
         }
     }
 
+    @Subscribe
+    public void onItemSpawned(ItemSpawned itemSpawned) {
+        int itemPriceThreshold = config.alertThreshold();
 
-    private void updateDefaultState() {
-        StateBuilderSteps.InitialStep builder = State.builder();
-        builder.effect(EffectType.NONE);
-        builder.alert(AlertType.NONE);
-        State state = builder.color(getColorPickerValue()).on();
-        defaultState = state;
+        int price = itemManager.getItemPrice(itemSpawned.getItem().getId());
+
+        if(price > itemPriceThreshold){
+            setAlertState();
+        }
     }
 
-    private void setState(State state) {
-        if (room.isEmpty()) return;
-        room.get().getLights().forEach(l -> l.setState(state));
+    private void setDefaultState() {
+        gradientLights.forEach(l -> hue.turnOn(l));
+        gradientLights.forEach(l -> hue.setGradientColor(l, config.defaultColor(), Color.WHITE));
+
+        normalLights.forEach(l -> hue.turnOn(l));
+        normalLights.forEach(l -> hue.setColor(l, config.defaultColor()));
     }
 
-    private Color getColorPickerValue() {
-        return Color.of(config.highlightDestinationColor());
+    private void setAlertState() {
+        timeAlertEnabled = System.currentTimeMillis();
+
+        gradientLights.forEach(l -> hue.turnOn(l));
+        gradientLights.forEach(l -> hue.setGradientColor(l, config.alarmColor()));
+
+        normalLights.forEach(l -> hue.turnOn(l));
+        gradientLights.forEach(l -> hue.setGradientColor(l, config.alarmColor()));
+
     }
-
-    private void applyBrightness() {
-        if (room.isEmpty()) return;
-        int brightness = (int)((config.brightness()/10f) * 254);
-
-        room.get().setBrightness(brightness);
-    }
-
-//
-//	@Subscribe
-//	public void onGameTick(GameTick event) {
-//
-//	}
 }
