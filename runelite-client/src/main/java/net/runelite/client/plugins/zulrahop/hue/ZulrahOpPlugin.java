@@ -46,15 +46,15 @@ public class ZulrahOpPlugin extends Plugin {
         return rotation;
     }
 
-    public List<List<ZulrahPos>> getRotations() {
+    public List<List<ZulrahPhase>> getRotations() {
         return rotations;
     }
 
-    public void setRotations(List<List<ZulrahPos>> rotations) {
+    public void setRotations(List<List<ZulrahPhase>> rotations) {
         this.rotations = rotations;
     }
 
-    private List<List<ZulrahPos>> rotations = new ArrayList<>();
+    private List<List<ZulrahPhase>> rotations = new ArrayList<>();
 
     private Point BOTTOM_LEFT = new Point(56, 62);
     private Point TOP_LEFT = new Point(57, 55);
@@ -68,56 +68,56 @@ public class ZulrahOpPlugin extends Plugin {
     protected void startUp() {
         overlayManager.add(zulrahOpOverlay);
 
-        List<ZulrahPos> rotation1 = List.of(
-                ZulrahPos.asRanged(BOTTOM_LEFT),
-                ZulrahPos.asMelee(BOTTOM_LEFT),
-                ZulrahPos.asMage(TOP_RIGHT),
-                ZulrahPos.asRanged(TOP_RIGHT),
-                ZulrahPos.asMelee(TOP_RIGHT),
-                ZulrahPos.asMage(TOP_RIGHT),
-                ZulrahPos.asRanged(TOP_LEFT),
-                ZulrahPos.asMage(TOP_RIGHT),
-                ZulrahPos.asRanged(BOTTOM_RIGHT),
-                ZulrahPos.asMelee(BOTTOM_RIGHT)
+        List<ZulrahPhase> rotation1 = List.of(
+                ZulrahPhase.asRanged(BOTTOM_LEFT),
+                ZulrahPhase.asMelee(BOTTOM_LEFT),
+                ZulrahPhase.asMage(TOP_RIGHT),
+                ZulrahPhase.asRanged(TOP_RIGHT),
+                ZulrahPhase.asMelee(TOP_RIGHT),
+                ZulrahPhase.asMage(TOP_RIGHT),
+                ZulrahPhase.asRanged(TOP_LEFT),
+                ZulrahPhase.asMage(TOP_RIGHT),
+                ZulrahPhase.asRanged(BOTTOM_RIGHT),
+                ZulrahPhase.asMelee(BOTTOM_RIGHT)
         );
 
-        List<ZulrahPos> rotation2 = List.of(
-                ZulrahPos.asRanged(BOTTOM_LEFT),
-                ZulrahPos.asMelee(BOTTOM_LEFT),
-                ZulrahPos.asMage(TOP_RIGHT),
-                ZulrahPos.asRanged(TOP_RIGHT),
-                ZulrahPos.asMage(TOP_RIGHT),
-                ZulrahPos.asMelee(TOP_RIGHT),
-                ZulrahPos.asRanged(TOP_LEFT),
-                ZulrahPos.asMage(TOP_RIGHT),
-                ZulrahPos.asRanged(BOTTOM_RIGHT),
-                ZulrahPos.asMelee(BOTTOM_RIGHT)
+        List<ZulrahPhase> rotation2 = List.of(
+                ZulrahPhase.asRanged(BOTTOM_LEFT),
+                ZulrahPhase.asMelee(BOTTOM_LEFT),
+                ZulrahPhase.asMage(TOP_RIGHT),
+                ZulrahPhase.asRanged(TOP_RIGHT),
+                ZulrahPhase.asMage(TOP_RIGHT),
+                ZulrahPhase.asMelee(TOP_RIGHT),
+                ZulrahPhase.asRanged(TOP_LEFT),
+                ZulrahPhase.asMage(TOP_RIGHT),
+                ZulrahPhase.asRanged(BOTTOM_RIGHT),
+                ZulrahPhase.asMelee(BOTTOM_RIGHT)
         );
 
-        List<ZulrahPos> rotation3 = List.of(
-                ZulrahPos.asRanged(BOTTOM_LEFT),
-                ZulrahPos.asRanged(BOTTOM_LEFT),
-                ZulrahPos.asMelee(BOTTOM_RIGHT),
-                ZulrahPos.asMage(TOP_RIGHT),
-                ZulrahPos.asRanged(TOP_MIDDLE),
-                ZulrahPos.asMage(TOP_LEFT),
-                ZulrahPos.asRanged(TOP_RIGHT),
-                ZulrahPos.asRanged(TOP_RIGHT),
-                ZulrahPos.asMage(BOTTOM_LEFT),
-                ZulrahPos.asMage(BOTTOM_LEFT)
+        List<ZulrahPhase> rotation3 = List.of(
+                ZulrahPhase.asRanged(BOTTOM_LEFT),
+                ZulrahPhase.asRanged(BOTTOM_LEFT),
+                ZulrahPhase.asMelee(BOTTOM_RIGHT),
+                ZulrahPhase.asMage(TOP_RIGHT),
+                ZulrahPhase.asRanged(TOP_MIDDLE),
+                ZulrahPhase.asMage(TOP_LEFT),
+                ZulrahPhase.asRanged(TOP_RIGHT),
+                ZulrahPhase.asRanged(TOP_RIGHT),
+                ZulrahPhase.asMage(BOTTOM_LEFT),
+                ZulrahPhase.asMage(BOTTOM_LEFT)
         );
 
-        List<ZulrahPos> rotation4 = List.of(
-                ZulrahPos.asRanged(BOTTOM_LEFT),
-                ZulrahPos.asMage(BOTTOM_LEFT),
-                ZulrahPos.asRanged(TOP_RIGHT),
-                ZulrahPos.asMage(TOP_RIGHT),
-                ZulrahPos.asMelee(TOP_LEFT),
-                ZulrahPos.asRanged(TOP_LEFT),
-                ZulrahPos.asRanged(TOP_RIGHT),
-                ZulrahPos.asMage(TOP_RIGHT),
-                ZulrahPos.asRanged(BOTTOM_LEFT),
-                ZulrahPos.asMage(BOTTOM_LEFT)
+        List<ZulrahPhase> rotation4 = List.of(
+                ZulrahPhase.asRanged(BOTTOM_LEFT),
+                ZulrahPhase.asMage(BOTTOM_LEFT),
+                ZulrahPhase.asRanged(TOP_RIGHT),
+                ZulrahPhase.asMage(TOP_RIGHT),
+                ZulrahPhase.asMelee(TOP_LEFT),
+                ZulrahPhase.asRanged(TOP_LEFT),
+                ZulrahPhase.asRanged(TOP_RIGHT),
+                ZulrahPhase.asMage(TOP_RIGHT),
+                ZulrahPhase.asRanged(BOTTOM_LEFT),
+                ZulrahPhase.asMage(BOTTOM_LEFT)
                 );
 
         rotations = List.of(
