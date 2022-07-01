@@ -7,10 +7,10 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.regex.Pattern;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
+import net.runelite.api.Client;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemSpawned;
@@ -32,6 +32,9 @@ import net.runelite.client.util.Text;
 public class HuePlugin extends Plugin
 {
 	@Inject
+	private Client client;
+
+	@Inject
 	private ClientThread clientThread;
 
 	@Inject
@@ -40,9 +43,9 @@ public class HuePlugin extends Plugin
 	@Inject
 	private HueConfig config;
 
-	private static final Pattern SPECIAL_DROP_MESSAGE = Pattern.compile("(.+) - (.+)");
 	private static final long TIME_ALERT_MS = 2000;
 	private static final Color PURPLE = new Color(161, 52, 235);
+	private static final Color LIGHT_BLUE = new Color(52, 198, 235);
 
 	private HueV2 hue;
 	private List<String> gradientLights;
@@ -159,10 +162,23 @@ public class HuePlugin extends Plugin
 			{
 				hueExecutorService.submit(() -> hue.fireWorks(gradientLights, normalLights, Duration.ofSeconds(10)));
 			}
+			else if (message.contains(client.getLocalPlayer().getName()))
+			{
+				if (message.contains("enhanced"))
+				{
+					gradientLights.forEach(id -> hue.setGradientColor(id, PURPLE, Duration.ofSeconds(15)));
+					normalLights.forEach(id -> hue.setColor(id, PURPLE, Duration.ofSeconds(15)));
+				}
+				else if (message.contains("armour"))
+				{
+					gradientLights.forEach(id -> hue.setGradientColor(id, LIGHT_BLUE, Duration.ofSeconds(15)));
+					normalLights.forEach(id -> hue.setColor(id, LIGHT_BLUE, Duration.ofSeconds(15)));
+				}
+			}
 		}
 		else if (chatMessage.getType() == ChatMessageType.FRIENDSCHATNOTIFICATION)
 		{
-			if (SPECIAL_DROP_MESSAGE.matcher(message).find())
+			if (message.contains("Special loot"))
 			{
 				hueExecutorService.submit(() -> {
 					gradientLights.forEach(id -> hue.setGradientColor(id, PURPLE, Duration.ofSeconds(15)));
