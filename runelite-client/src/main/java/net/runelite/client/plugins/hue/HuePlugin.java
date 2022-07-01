@@ -1,19 +1,29 @@
 package net.runelite.client.plugins.hue;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Provides;
 import eu.openvalue.huev2.HueV2;
 import java.awt.Color;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
+import net.runelite.api.NPC;
+import static net.runelite.api.NpcID.ZULRAH;
+import static net.runelite.api.NpcID.ZULRAH_2043;
+import static net.runelite.api.NpcID.ZULRAH_2044;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemSpawned;
+import net.runelite.api.events.NpcChanged;
+import net.runelite.api.events.NpcSpawned;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -52,6 +62,14 @@ public class HuePlugin extends Plugin
 	private List<String> normalLights;
 	private final ExecutorService hueExecutorService = Executors.newFixedThreadPool(1);
 	private long timeAlertEnabled = Integer.MAX_VALUE;
+
+	private static final Set<Integer> ZULRAH_REGIONS = ImmutableSet.of(9007, 9008);
+	private static final Map<Integer, Color> ZULRAH_COLORS = new HashMap<Integer, Color>()
+	{{
+		put(ZULRAH, Color.GREEN);
+		put(ZULRAH_2043, Color.RED);
+		put(ZULRAH_2044, Color.CYAN);
+	}};
 
 	@Provides
 	HueConfig provideConfig(ConfigManager configManager)
@@ -141,6 +159,34 @@ public class HuePlugin extends Plugin
 		if (price > itemPriceThreshold)
 		{
 			setAlertState();
+		}
+	}
+
+	@Subscribe
+	public void onNpcSpawned(NpcSpawned npcSpawned)
+	{
+		NPC npc = npcSpawned.getNpc();
+		if (ZULRAH == npc.getId())
+		{
+			Color zulrahColor = ZULRAH_COLORS.get(ZULRAH);
+			hueExecutorService.submit(() -> {
+				gradientLights.forEach(id -> hue.setGradientColor(id, zulrahColor));
+				normalLights.forEach(id -> hue.setColor(id, zulrahColor));
+			});
+		}
+	}
+
+	@Subscribe
+	public void onNpcChanged(NpcChanged npcChanged)
+	{
+		//if (client.isInInstancedRegion() && ZULRAH_REGIONS.contains(WorldPoint.fromLocalInstance(client, client.getLocalPlayer().getLocalLocation()).getRegionID()))
+		if (ZULRAH_COLORS.containsKey(npcChanged.getNpc().getId()))
+		{
+			Color zulrahColor = ZULRAH_COLORS.get(ZULRAH);
+			hueExecutorService.submit(() -> {
+				gradientLights.forEach(id -> hue.setGradientColor(id, zulrahColor));
+				normalLights.forEach(id -> hue.setColor(id, zulrahColor));
+			});
 		}
 	}
 
