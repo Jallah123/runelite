@@ -2,11 +2,16 @@ package net.runelite.client.plugins.hue;
 
 import com.google.inject.Provides;
 import eu.openvalue.huev2.HueV2;
-
+import java.awt.Color;
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.regex.Pattern;
 import javax.inject.Inject;
-
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Client;
+import net.runelite.api.ChatMessageType;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemSpawned;
 import net.runelite.client.callback.ClientThread;
@@ -16,133 +21,174 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
-
-import java.awt.*;
-import java.util.List;
+import net.runelite.client.util.Text;
 
 @PluginDescriptor(
-        name = "Hue",
-        description = "Hue shit",
-        tags = {"hue", "shit", "lights"}
+	name = "Hue",
+	description = "Hue shit",
+	tags = {"hue", "shit", "lights"}
 )
 @Slf4j
-public class HuePlugin extends Plugin {
-    @Inject
-    private Client client;
+public class HuePlugin extends Plugin
+{
+	@Inject
+	private ClientThread clientThread;
 
-    @Inject
-    private ClientThread clientThread;
+	@Inject
+	private ItemManager itemManager;
 
-    @Inject
-    private InfoBoxManager infoBoxManager;
+	@Inject
+	private HueConfig config;
 
-    @Inject
-    private ItemManager itemManager;
+	private static final Pattern SPECIAL_DROP_MESSAGE = Pattern.compile("(.+) - (.+)");
+	private static final long TIME_ALERT_MS = 2000;
+	private static final Color PURPLE = new Color(161, 52, 235);
 
-    @Inject
-    private HueConfig config;
+	private HueV2 hue;
+	private List<String> gradientLights;
+	private List<String> normalLights;
+	private final ExecutorService hueExecutorService = Executors.newFixedThreadPool(1);
+	private long timeAlertEnabled = Integer.MAX_VALUE;
 
-    private static final String BRIDGE_IP = "172.16.1.180";
-    private static final String APP_NAME = "MyFirstHueApp"; // Fill in the name of your application
-    private static final String KEY = "nromEyldXQdCew5h7tHi6XTvu0C4IKO6yPOsGVfF";
+	@Provides
+	HueConfig provideConfig(ConfigManager configManager)
+	{
+		return configManager.getConfig(HueConfig.class);
+	}
 
-    private HueV2 hue;
-    List<String> gradientLights;
-    List<String> normalLights;
+	@Override
+	protected void startUp() throws Exception
+	{
+		clientThread.invokeLater(() ->
+		{
+			try
+			{
+				hue = new HueV2(config.bridgeIp(), config.bridgeToken());
+				refreshLights();
+				setDefaultState();
+			}
+			catch (Exception e)
+			{
+				e.printStackTrace();
+			}
+		});
+	}
 
-    long timeAlertEnabled = Integer.MAX_VALUE;
-    long timeAlertMs = 2000;
+	@Subscribe
+	public void onGameTick(GameTick tick)
+	{
+		handleDisableAlert();
+	}
 
-    @Provides
-    HueConfig provideConfig(ConfigManager configManager) {
-        return configManager.getConfig(HueConfig.class);
-    }
+	private void handleDisableAlert()
+	{
+		if (timeAlertEnabled == Integer.MAX_VALUE)
+		{
+			return;
+		}
 
-    @Override
-    protected void startUp() throws Exception {
-        clientThread.invokeLater(() ->
-        {
-            try {
+		long disableAlertAt = TIME_ALERT_MS + timeAlertEnabled;
 
+		if (disableAlertAt < System.currentTimeMillis())
+		{
+			setDefaultState();
+			timeAlertEnabled = Integer.MAX_VALUE;
+		}
+	}
 
-                hue = new HueV2(BRIDGE_IP, KEY);
-                refreshLights();
-                setDefaultState();
+	private void refreshLights()
+	{
+		try
+		{
+			hue = new HueV2(config.bridgeIp(), config.bridgeToken());
+			String roomName = config.room();
+			gradientLights = hue.getGradientLightsForRoom(roomName);
+			normalLights = hue.getNormalLightsForRoom(roomName);
+		}
+		catch (Exception e)
+		{
 
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
-    }
+		}
+	}
 
-    @Subscribe
-    public void onGameTick(GameTick tick) {
-        handleDisableAlert();
-    }
+	@Override
+	protected void shutDown() throws Exception
+	{
+	}
 
-    private void handleDisableAlert(){
-        if(timeAlertEnabled == Integer.MAX_VALUE) return;
+	@Subscribe
+	public void onConfigChanged(ConfigChanged configChanged)
+	{
+		refreshLights();
+		if (config.enabled())
+		{
+			setDefaultState();
+		}
+		else
+		{
+			hueExecutorService.submit(() -> gradientLights.forEach(l -> hue.turnOff(l)));
+		}
+	}
 
-        long disableAlertAt = timeAlertMs + timeAlertEnabled;
+	@Subscribe
+	public void onItemSpawned(ItemSpawned itemSpawned)
+	{
+		int itemPriceThreshold = config.alertThreshold();
+		int price = itemManager.getItemPrice(itemSpawned.getItem().getId());
+		if (price > itemPriceThreshold)
+		{
+			setAlertState();
+		}
+	}
 
-        if(disableAlertAt < System.currentTimeMillis()){
-            setDefaultState();
-            timeAlertEnabled = Integer.MAX_VALUE;
-        }
-    }
+	@Subscribe
+	public void onChatMessage(ChatMessage chatMessage) throws InterruptedException
+	{
+		String message = Text.removeTags(chatMessage.getMessage());
+		if (chatMessage.getType() == ChatMessageType.GAMEMESSAGE)
+		{
+			if (message.contains("You have a funny feeling like") || message.contains("You feel something weird sneaking into your backpack"))
+			{
+				// do something
+			}
+			else if (message.contains("Oh dear, you are dead!"))
+			{
+				hueExecutorService.submit(() -> hue.fireWorks(gradientLights, normalLights, Duration.ofSeconds(10)));
+			}
+			else if (message.contains("Congratulations, you've just advanced"))
+			{
+				hueExecutorService.submit(() -> hue.fireWorks(gradientLights, normalLights, Duration.ofSeconds(10)));
+			}
+		}
+		else if (chatMessage.getType() == ChatMessageType.FRIENDSCHATNOTIFICATION)
+		{
+			if (SPECIAL_DROP_MESSAGE.matcher(message).find())
+			{
+				hueExecutorService.submit(() -> {
+					gradientLights.forEach(id -> hue.setGradientColor(id, PURPLE, Duration.ofSeconds(15)));
+					normalLights.forEach(id -> hue.setColor(id, PURPLE, Duration.ofSeconds(15)));
+				});
+			}
+		}
+	}
 
-    private void refreshLights() {
-        String roomName = config.room();
-        gradientLights = hue.getGradientLightsForRoom(roomName);
-        normalLights = hue.getNormalLightsForRoom(roomName);
+	private void setDefaultState()
+	{
+		hueExecutorService.submit(() -> gradientLights.forEach(l -> hue.turnOn(l)));
+		hueExecutorService.submit(() -> gradientLights.forEach(l -> hue.setGradientColor(l, config.defaultColor(), Color.WHITE)));
 
-    }
+		hueExecutorService.submit(() -> normalLights.forEach(l -> hue.turnOn(l)));
+		hueExecutorService.submit(() -> normalLights.forEach(l -> hue.setColor(l, config.defaultColor())));
+	}
 
-    @Override
-    protected void shutDown() throws Exception {
-    }
+	private void setAlertState()
+	{
+		timeAlertEnabled = System.currentTimeMillis();
 
+		hueExecutorService.submit(() -> gradientLights.forEach(l -> hue.turnOn(l)));
+		hueExecutorService.submit(() -> gradientLights.forEach(l -> hue.setGradientColor(l, config.alarmColor())));
 
-    @Subscribe
-    public void onConfigChanged(ConfigChanged configChanged) {
-        refreshLights();
-
-        if (config.enabled()) {
-            setDefaultState();
-
-        } else {
-            gradientLights.forEach(l -> hue.turnOff(l));
-        }
-    }
-
-    @Subscribe
-    public void onItemSpawned(ItemSpawned itemSpawned) {
-        int itemPriceThreshold = config.alertThreshold();
-
-        int price = itemManager.getItemPrice(itemSpawned.getItem().getId());
-
-        if(price > itemPriceThreshold){
-            setAlertState();
-        }
-    }
-
-    private void setDefaultState() {
-        gradientLights.forEach(l -> hue.turnOn(l));
-        gradientLights.forEach(l -> hue.setGradientColor(l, config.defaultColor(), Color.WHITE));
-
-        normalLights.forEach(l -> hue.turnOn(l));
-        normalLights.forEach(l -> hue.setColor(l, config.defaultColor()));
-    }
-
-    private void setAlertState() {
-        timeAlertEnabled = System.currentTimeMillis();
-
-        gradientLights.forEach(l -> hue.turnOn(l));
-        gradientLights.forEach(l -> hue.setGradientColor(l, config.alarmColor()));
-
-        normalLights.forEach(l -> hue.turnOn(l));
-        gradientLights.forEach(l -> hue.setGradientColor(l, config.alarmColor()));
-
-    }
+		hueExecutorService.submit(() -> normalLights.forEach(l -> hue.turnOn(l)));
+		hueExecutorService.submit(() -> gradientLights.forEach(l -> hue.setGradientColor(l, config.alarmColor())));
+	}
 }

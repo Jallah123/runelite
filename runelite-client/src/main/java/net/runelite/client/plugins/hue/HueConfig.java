@@ -24,24 +24,44 @@
  */
 package net.runelite.client.plugins.hue;
 
-import net.runelite.client.config.*;
-
-import java.awt.*;
+import java.awt.Color;
+import net.runelite.client.config.Alpha;
+import net.runelite.client.config.Config;
+import net.runelite.client.config.ConfigGroup;
+import net.runelite.client.config.ConfigItem;
+import net.runelite.client.config.ConfigSection;
+import net.runelite.client.config.Range;
 
 @ConfigGroup("hueshit")
 public interface HueConfig extends Config
 {
+	@ConfigSection(
+		name = "Hue bridge",
+		description = "Technical settings for the bridge",
+		position = 1
+	)
+	String bridgeSection = "generalSection";
 
-	String generalSection = "generalSection";
+	@ConfigSection(
+		name = "Colors",
+		description = "Default",
+		position = 2
+	)
 	String defaultSection = "defaultSection";
+
+	@ConfigSection(
+		name = "Alerts",
+		description = "Alerts",
+		position = 3
+	)
 	String alertSection = "alertSection";
 
 	@ConfigItem(
-			keyName = "enabled",
-			name = "Enables shit",
-			description = "Enables shit.",
-			position = 0,
-			section = generalSection
+		keyName = "enabled",
+		name = "Enabled",
+		description = "Enables shit.",
+		position = 0,
+		section = bridgeSection
 	)
 	default boolean enabled()
 	{
@@ -49,25 +69,51 @@ public interface HueConfig extends Config
 	}
 
 	@ConfigItem(
-			keyName = "room",
-			name = "Room",
-			description = "Your room to enable hue shit for",
-			position = 1,
-			section = generalSection
+		keyName = "Bridge IP",
+		name = "Bridge ip",
+		description = "Bridge ip",
+		position = 1,
+		section = bridgeSection
+	)
+	default String bridgeIp()
+	{
+		return "";
+	}
+
+	@ConfigItem(
+		keyName = "Bridge token",
+		name = "Bridge token",
+		description = "Bridge token",
+		position = 2,
+		section = bridgeSection
+	)
+	default String bridgeToken()
+	{
+		return "";
+	}
+
+	@ConfigItem(
+		keyName = "room",
+		name = "Room",
+		description = "Your room to enable hue shit for",
+		position = 3,
+		section = bridgeSection
 	)
 	default String room()
 	{
 		return "";
 	}
+
+
 	@ConfigItem(
-			keyName = "brightness",
-			name = "Brightness",
-			description = "Configures the brightness",
-			position = 1,
-			section = defaultSection
+		keyName = "brightness",
+		name = "Brightness",
+		description = "Configures the brightness",
+		position = 1,
+		section = defaultSection
 	)
 	@Range(
-			max = 10
+		max = 10
 	)
 	default int brightness()
 	{
@@ -76,11 +122,11 @@ public interface HueConfig extends Config
 
 	@Alpha
 	@ConfigItem(
-			keyName = "defaultColor",
-			name = "Default color",
-			description = "Configures the default color",
-			position = 1,
-			section = defaultSection
+		keyName = "defaultColor",
+		name = "Default color",
+		description = "Configures the default color",
+		position = 2,
+		section = defaultSection
 	)
 	default Color defaultColor()
 	{
@@ -89,11 +135,11 @@ public interface HueConfig extends Config
 
 
 	@ConfigItem(
-			keyName = "alertThreshold",
-			name = "Alert Item Value Threshold",
-			description = "Any item that is more valuable than this threshold will result in an alarm",
-			position = 1,
-			section = alertSection
+		keyName = "alertThreshold",
+		name = "Alert Item Value Threshold",
+		description = "Any item that is more valuable than this threshold will result in an alarm",
+		position = 1,
+		section = alertSection
 	)
 	default int alertThreshold()
 	{
@@ -102,11 +148,11 @@ public interface HueConfig extends Config
 
 	@Alpha
 	@ConfigItem(
-			keyName = "alarmColor",
-			name = "Alarm color",
-			description = "Configures the alarm color",
-			position = 1,
-			section = defaultSection
+		keyName = "alarmColor",
+		name = "Alarm color",
+		description = "Configures the alarm color",
+		position = 1,
+		section = defaultSection
 	)
 	default Color alarmColor()
 	{
