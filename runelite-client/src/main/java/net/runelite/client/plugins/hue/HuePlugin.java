@@ -5,6 +5,7 @@ import com.google.inject.Provides;
 import eu.openvalue.huev2.HueV2;
 import java.awt.Color;
 import java.time.Duration;
+import static java.util.Collections.emptyMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,7 @@ import net.runelite.api.NPC;
 import static net.runelite.api.NpcID.ZULRAH;
 import static net.runelite.api.NpcID.ZULRAH_2043;
 import static net.runelite.api.NpcID.ZULRAH_2044;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemSpawned;
@@ -31,6 +33,7 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import static net.runelite.client.plugins.hue.Feature.HUE;
 import net.runelite.client.util.Text;
 
 @PluginDescriptor(
@@ -62,13 +65,51 @@ public class HuePlugin extends Plugin
 	private List<String> normalLights;
 	private final ExecutorService hueExecutorService = Executors.newFixedThreadPool(1);
 	private long timeAlertEnabled = Integer.MAX_VALUE;
+	private State currentState = State.IDLE;
+	private long lastSkyboxUpdate = System.currentTimeMillis();
 
 	private static final Set<Integer> ZULRAH_REGIONS = ImmutableSet.of(9007, 9008);
-	private static final Map<Integer, Color> ZULRAH_COLORS = new HashMap<Integer, Color>()
+	private static final Map<Integer, State> ZULRAH_STATES = new HashMap<Integer, State>()
 	{{
-		put(ZULRAH, Color.GREEN);
-		put(ZULRAH_2043, Color.RED);
-		put(ZULRAH_2044, Color.CYAN);
+		put(ZULRAH, State.ZULRAH_COMBAT_RANGE);
+		put(ZULRAH_2043, State.ZULRAH_COMBAT_MELEE);
+		put(ZULRAH_2044, State.ZULRAH_COMBAT_MAGE);
+	}};
+
+	private final Map<State, Map<Feature, Runnable>> stateConsumerMap = new HashMap<State, Map<Feature, Runnable>>()
+	{{
+		put(State.IDLE, new HashMap<Feature, Runnable>()
+		{{
+			put(HUE, () -> hueExecutorService.submit(() -> {
+				int skybox = client.getSkyboxColor();
+				Color color = new Color((skybox >> 16) & 0xFF, (skybox >> 8) & 0xFF, (skybox) & 0xFF);
+				gradientLights.forEach(id -> hue.setGradientColor(id, color));
+				normalLights.forEach(id -> hue.setColor(id, color));
+			}));
+		}});
+		put(State.ZULRAH_BEFORE_FIGHT, emptyMap());
+		put(State.ZULRAH_COMBAT_RANGE, new HashMap<Feature, Runnable>()
+		{{
+			put(HUE, () -> hueExecutorService.submit(() -> {
+				gradientLights.forEach(id -> hue.setGradientColor(id, Color.GREEN));
+				normalLights.forEach(id -> hue.setColor(id, Color.GREEN));
+			}));
+		}});
+		put(State.ZULRAH_COMBAT_MAGE, new HashMap<Feature, Runnable>()
+		{{
+			put(HUE, () -> hueExecutorService.submit(() -> {
+				gradientLights.forEach(id -> hue.setGradientColor(id, Color.CYAN));
+				normalLights.forEach(id -> hue.setColor(id, Color.CYAN));
+			}));
+		}});
+		put(State.ZULRAH_COMBAT_MELEE, new HashMap<Feature, Runnable>()
+		{{
+			put(HUE, () -> hueExecutorService.submit(() -> {
+				gradientLights.forEach(id -> hue.setGradientColor(id, Color.RED));
+				normalLights.forEach(id -> hue.setColor(id, Color.RED));
+			}));
+		}});
+		put(State.ZULRAH_AFTER_FIGHT, emptyMap());
 	}};
 
 	@Provides
@@ -95,10 +136,45 @@ public class HuePlugin extends Plugin
 		});
 	}
 
+	private void setState(State state)
+	{
+		currentState = state;
+		stateConsumerMap.get(state).values().forEach(Runnable::run);
+	}
+
 	@Subscribe
 	public void onGameTick(GameTick tick)
 	{
 		handleDisableAlert();
+		if (currentState == State.IDLE && System.currentTimeMillis() - lastSkyboxUpdate > 1000L)
+		{
+			updateSkybox();
+			return;
+		}
+		if (currentState == State.IDLE &&
+			client.isInInstancedRegion() &&
+			ZULRAH_REGIONS.contains(WorldPoint.fromLocalInstance(client, client.getLocalPlayer().getLocalLocation()).getRegionID())
+		)
+		{
+			setState(State.ZULRAH_BEFORE_FIGHT);
+			return;
+		}
+		if (currentState.name().toLowerCase().contains("zulrah") && (!client.isInInstancedRegion() || !ZULRAH_REGIONS.contains(WorldPoint.fromLocalInstance(client, client.getLocalPlayer().getLocalLocation()).getRegionID())))
+		{
+			setState(State.IDLE);
+			return;
+		}
+	}
+
+	private void updateSkybox()
+	{
+		lastSkyboxUpdate = System.currentTimeMillis();
+		int skybox = client.getSkyboxColor();
+		hueExecutorService.submit(() -> {
+			Color color = new Color((skybox >> 16) & 0xFF, (skybox >> 8) & 0xFF, (skybox) & 0xFF);
+			gradientLights.forEach(id -> hue.setGradientColor(id, color));
+			normalLights.forEach(id -> hue.setColor(id, color));
+		});
 	}
 
 	private void handleDisableAlert()
@@ -168,25 +244,23 @@ public class HuePlugin extends Plugin
 		NPC npc = npcSpawned.getNpc();
 		if (ZULRAH == npc.getId())
 		{
-			Color zulrahColor = ZULRAH_COLORS.get(ZULRAH);
-			hueExecutorService.submit(() -> {
-				gradientLights.forEach(id -> hue.setGradientColor(id, zulrahColor));
-				normalLights.forEach(id -> hue.setColor(id, zulrahColor));
-			});
+			setState(State.ZULRAH_COMBAT_RANGE);
 		}
 	}
 
 	@Subscribe
 	public void onNpcChanged(NpcChanged npcChanged)
 	{
-		//if (client.isInInstancedRegion() && ZULRAH_REGIONS.contains(WorldPoint.fromLocalInstance(client, client.getLocalPlayer().getLocalLocation()).getRegionID()))
-		if (ZULRAH_COLORS.containsKey(npcChanged.getNpc().getId()))
+		if (ZULRAH_STATES.containsKey(npcChanged.getNpc().getId()))
 		{
-			Color zulrahColor = ZULRAH_COLORS.get(ZULRAH);
-			hueExecutorService.submit(() -> {
-				gradientLights.forEach(id -> hue.setGradientColor(id, zulrahColor));
-				normalLights.forEach(id -> hue.setColor(id, zulrahColor));
-			});
+			if (npcChanged.getNpc().isDead())
+			{
+				setState(State.ZULRAH_AFTER_FIGHT);
+			}
+			else
+			{
+				setState(ZULRAH_STATES.get(npcChanged.getNpc().getId()));
+			}
 		}
 	}
 
@@ -236,6 +310,7 @@ public class HuePlugin extends Plugin
 
 	private void setDefaultState()
 	{
+		setState(State.IDLE);
 		hueExecutorService.submit(() -> gradientLights.forEach(l -> hue.turnOn(l)));
 		hueExecutorService.submit(() -> gradientLights.forEach(l -> hue.setGradientColor(l, config.defaultColor(), Color.WHITE)));
 
