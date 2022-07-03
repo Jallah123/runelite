@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.zulrahop.hue;
+package net.runelite.client.plugins.zulrahop.zulrah;
 
 import java.awt.*;
 

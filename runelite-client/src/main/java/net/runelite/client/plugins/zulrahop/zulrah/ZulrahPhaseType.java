@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.zulrahop.hue;
+package net.runelite.client.plugins.zulrahop.zulrah;
 
 import java.awt.*;
 
@@ -14,7 +14,7 @@ public enum ZulrahPhaseType {
             case RANGE:
                 return Color.GREEN;
             case RANGE_JAD:
-                return new Color(30, 255, 20);
+                return new Color(17, 168, 110);
             case MAGE_JAD:
                 return Color.BLUE;
         }
