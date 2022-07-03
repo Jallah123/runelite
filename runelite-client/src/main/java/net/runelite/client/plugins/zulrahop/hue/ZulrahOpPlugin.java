@@ -154,25 +154,29 @@ public class ZulrahOpPlugin extends Plugin {
             System.out.println("phase " + phase);
 
             if (rotation == 0) {
-                System.out.println("Still looking for rotation..");
-                if (phase == 2) {
-                    if (event.getNpc().getId() == ZULRAH) {
-                        setRotation(3);
-                    }
-                    if (event.getNpc().getId() == ZULRAH_2044) { //IDK?
-                        setRotation(4);
-                    }
-                }
-                if (phase == 4 && event.getNpc().getId() == ZULRAH) {
-                    System.out.println("Orientation " + event.getNpc().getOrientation());
-                    if (event.getNpc().getOrientation() == 1023) {
-                        setRotation(1);
-                    } else {
-                        setRotation(2);
-                    }
-                }
+                determineRotation(event);
+            }
+        }
+    }
+
+    private void determineRotation(NpcChanged event) {
+        System.out.println("Still looking for rotation..");
+        System.out.println("Zulrah ID is " + event.getNpc().getId());
+        if (phase == 2) {
+
+            System.out.println("PHASE 2: Zulrah ID is " + event.getNpc().getId());
+            if (event.getNpc().getId() == ZULRAH) {
+                setRotation(3);
+            }
+            if (event.getNpc().getId() == ZULRAH_2044) { //IDK?
+                setRotation(4);
+            }
+        }
+        if (phase == 4 && event.getNpc().getId() == ZULRAH) {
+            if (event.getNpc().getOrientation() == 1023) {
+                setRotation(1);
             } else {
-                System.out.println("We already know rotation is " + rotation);
+                setRotation(2);
             }
         }
     }
